@@ -1,0 +1,13 @@
+\version "2.19.48"
+
+\new Staff = "\new:" {
+c'4
+r4
+d'4
+r4
+e'4
+r4
+d'4
+r4
+c'1
+}
