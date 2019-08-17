@@ -54,7 +54,7 @@ class Expression:
             elif isinstance(expression, Expression):
                 pitches.update(pitch.pitch for pitch in expression.pitches())
         return pitches
-
+        
     def lowest_pitch(self):
         return min(self.pitches(),default=108)
         
@@ -96,12 +96,18 @@ class PolyphonicContext:
         return self.__children
 
     def __str__(self):
-        return "<<\n"+ '\n\\\\\n'.join(map(str, self.__children)) + "\n>>"
+        return "<<\n"+ '\n\\\\\n'.join(map(str, sorted(self.__children, key=PolyphonicContext.sort_function, reverse=True))) + "\n>>"
 
     def length(self):
         lengths = list(map(lambda x: x.length(), self.__children))
         longest = max(lengths, default=0)
         return longest
+    
+    def sort_function(e):
+        # when printing a polyphonic context, sort by average pitch, so that 
+        # highest voice is printed first and is drawn with stems up
+        pitches = e.pitches()
+        return sum(pitches) / len(pitches)
 
 # A staff is a command followed by an expression that is contained in the staff
 class Staff(Expression):

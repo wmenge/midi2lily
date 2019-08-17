@@ -454,8 +454,8 @@ class HandleMidiNoteTest(unittest.TestCase):
     def test_2_voices(self):
         # TODO: Order seems to matter: e g, c seems to work, c, e g does not
         midi_notes = [
-            midi2lily.MidiNote(0, 1, 64),
             midi2lily.MidiNote(0, 2, 60),
+            midi2lily.MidiNote(0, 1, 64),
             midi2lily.MidiNote(1, 2, 67)
         ]
 
@@ -464,7 +464,7 @@ class HandleMidiNoteTest(unittest.TestCase):
         context.staff = midi2lily.Staff(':1')
 
         file = self.build_file(midi_notes, context)
-
+        
         self.assertEqual(str(file), self.get_expected('test-midi-files/polyphonic.txt'))
 
     def build_file(self, midi_notes, context):
