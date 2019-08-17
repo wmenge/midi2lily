@@ -500,7 +500,7 @@ class EndToEndTests(unittest.TestCase):
     def test_nachtmusik_intro(self):
         self.process_file('test-midi-files/nachtmusik-intro.midi', 'test-midi-files/nachtmusik-intro.txt')
 
-    def atest_nachtmusik_phrase_a(self):
+    def test_nachtmusik_phrase_a(self):
         self.process_file('test-midi-files/nachtmusik-phrase-a.midi', 'test-midi-files/nachtmusik-phrase-a.txt')
 
     def atest_nachtmusik_phrase_b(self):

@@ -4,6 +4,7 @@ from functools import reduce
 
 # Every piece of Lilypond information is contained in an expression
 # { }
+# TODO: split into rendering part and parse utility part
 class Expression:
 
     def __init__(self):
@@ -17,6 +18,9 @@ class Expression:
     
     def pop(self):
         return self._children.pop()
+        
+    def last(self):
+        return self._children[-1]
             
     def get_clef(self):
         if self.lowest_pitch() < 55 and self.highest_pitch() < 67:
@@ -377,8 +381,6 @@ class ParseContext:
         # rename to open expression so it can also hold a polyphonic fragment?
         self.staff = None
         self.polyphonic_context = None
-        self.previous_note = None
-        #self.current_note = None
         self.time_signature = None
         self.active_pitches = {}
         self.midi_notes = []
@@ -403,7 +405,7 @@ def note_on_handler(msg, context):
 # check if we can omit previous note and work from staff instead
 def note_off_handler(msg, context):
     midi_note = convert_to_midi_note(msg, context)
-    return handle_midi_note(midi_note, context)
+    handle_midi_note(midi_note, context)
     
 def convert_to_midi_note(msg, context):
     
@@ -422,8 +424,7 @@ def handle_midi_note(midi_note, context):
     
     start = Position.get_position(midi_note.start, context.time_signature.ticks_per_beat, context.time_signature.denominator)
         
-    fitted_note = fit_note_in_expression(note, start, context.staff, context.previous_note)
-    if fitted_note != None: return fitted_note
+    if fit_note_in_expression(note, start, context.staff): return
             
     # if we have arrived here we will need a polyphonic context
     if context.polyphonic_context == None:
@@ -433,33 +434,34 @@ def handle_midi_note(midi_note, context):
     
     # try to fit the note into any of the children of the polyphonic context
     for expression in context.polyphonic_context.voices():    
-       fitted_note = fit_note_in_expression(note, start, expression, context.previous_note)
-       if fitted_note != None: return fitted_note
+       if fit_note_in_expression(note, start, expression): return
         
     # if we arrive here the note does not fit in any of the existing voices, create a new one
     expression = Expression()
     context.polyphonic_context.add(expression)
 
-    fitted_note = fit_note_in_expression(note, start, expression, context.previous_note)
-    if fitted_note != None: return fitted_note
+    if fit_note_in_expression(note, start, expression): return
    
 # TODO: Add to expression class
-def fit_note_in_expression(note, start, expression, previous_note):
+def fit_note_in_expression(note, start, expression):
     # check if this note can be added to the score as a simple note (no polyphony, no chord)
     # if gap add rest
     if (start.length() >= expression.length()):
         expression.add(note)
-        return note
+        return True
     
     # check if this note can be added to the score as a chord
-    if previous_note != None:
+    previous_note = expression.last()
+    
+    # TODO: refactor in can_be_added_to and replace with
+    if previous_note != None and (isinstance(previous_note, Note) or isinstance(previous_note, Chord)):
         start_of_previous_note = expression.length() - previous_note.length()
     
         if (start.length() >= start_of_previous_note) and (note.duration == previous_note.duration):
             chord = Chord.construct_chord(note, previous_note)
             expression.pop()
             expression.add(chord)
-            return chord
+            return True
       
 def convert(midifile):
 
@@ -499,9 +501,9 @@ def convert(midifile):
                 context.time_signature = TimeSignature(msg.numerator, msg.denominator, midifile.ticks_per_beat)
 
             if is_note_on_message(msg):
-                context.previous_note = note_on_handler(msg, context)
+                note_on_handler(msg, context)
                 
             if is_note_off_message(msg):
-                context.previous_note = note_off_handler(msg, context)
+                note_off_handler(msg, context)
 
     return file
