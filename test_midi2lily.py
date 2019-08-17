@@ -25,7 +25,7 @@ class LilypondFileTest(unittest.TestCase):
 
     def test_file_with_empty_expression(self):
         file = midi2lily.File("1")
-        file.expressions = [midi2lily.Expression()]
+        file.add(midi2lily.Expression())
         self.assertEqual(str(file), "\\version \"1\"\n\n{\n}")
 
     def test_file_with_staff_with_notes(self):
@@ -33,20 +33,20 @@ class LilypondFileTest(unittest.TestCase):
         staff = midi2lily.Staff("trumpet")
 
         # TODO: hide children property
-        staff.children.append(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(4, 4, 4)))
-        staff.children.append(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(4, 4, 4)))
-        staff.children.append(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(6, 4, 4)))
-        staff.children.append(midi2lily.Note(midi2lily.Pitch(77), midi2lily.Duration.get_duration(2, 4, 4)))
+        staff.add(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(4, 4, 4)))
+        staff.add(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(4, 4, 4)))
+        staff.add(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(6, 4, 4)))
+        staff.add(midi2lily.Note(midi2lily.Pitch(77), midi2lily.Duration.get_duration(2, 4, 4)))
 
-        staff.children.append(midi2lily.Note(midi2lily.Pitch(76), midi2lily.Duration.get_duration(3, 4, 4)))
-        staff.children.append(midi2lily.Note(midi2lily.Pitch(74), midi2lily.Duration.get_duration(1, 4, 4)))
-        staff.children.append(midi2lily.Note(midi2lily.Pitch(72), midi2lily.Duration.get_duration(3, 4, 4)))
-        staff.children.append(midi2lily.Note(midi2lily.Pitch(76), midi2lily.Duration.get_duration(1, 4, 4)))
+        staff.add(midi2lily.Note(midi2lily.Pitch(76), midi2lily.Duration.get_duration(3, 4, 4)))
+        staff.add(midi2lily.Note(midi2lily.Pitch(74), midi2lily.Duration.get_duration(1, 4, 4)))
+        staff.add(midi2lily.Note(midi2lily.Pitch(72), midi2lily.Duration.get_duration(3, 4, 4)))
+        staff.add(midi2lily.Note(midi2lily.Pitch(76), midi2lily.Duration.get_duration(1, 4, 4)))
 
-        staff.children.append(midi2lily.Note(midi2lily.Pitch(74), midi2lily.Duration.get_duration(4, 4, 4)))
-        staff.children.append(midi2lily.Note(midi2lily.Pitch(67), midi2lily.Duration.get_duration(4, 4, 4)))
+        staff.add(midi2lily.Note(midi2lily.Pitch(74), midi2lily.Duration.get_duration(4, 4, 4)))
+        staff.add(midi2lily.Note(midi2lily.Pitch(67), midi2lily.Duration.get_duration(4, 4, 4)))
 
-        file.expressions.append(staff)
+        file.add(staff)
 
         self.assertEqual(str(file),
                          "\\version \"1\"\n\n\\new Staff = \"trumpet\" {\ng''4\ng''4\ng''4.\nf''8\ne''8.\nd''16\nc''8.\ne''16\nd''4\ng'4\n}")
@@ -62,7 +62,7 @@ class LilypondExpressionTest(unittest.TestCase):
         expression = midi2lily.Expression()
 
         note = midi2lily.Note(midi2lily.Pitch(60), midi2lily.Duration.get_duration(1, 1, 4))
-        expression.children.append(note)
+        expression.add(note)
 
         self.assertEqual(str(expression), "{\nc'4\n}")
 
@@ -71,37 +71,37 @@ class LilypondExpressionSplitTest(unittest.TestCase):
 
     def test_empty_expression(self):
         expression = midi2lily.Expression()
-        self.assertEqual(len(expression.children), 0)
+        self.assertEqual(len(expression._children), 0)
 
         new_expression = expression.split_at(0)
 
-        self.assertEqual(len(expression.children), 0)
+        self.assertEqual(len(expression._children), 0)
         self.assertEqual(new_expression, None)
 
     def test_non_divisable_expression(self):
         expression = midi2lily.Expression()
-        expression.children.append(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(4, 4, 4)))
-        self.assertEqual(len(expression.children), 1)
+        expression.add(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(4, 4, 4)))
+        self.assertEqual(len(expression._children), 1)
 
         new_expression = expression.split_at(1)
 
-        self.assertEqual(len(expression.children), 1)
+        self.assertEqual(len(expression._children), 1)
         self.assertEqual(new_expression, None)
 
     def test_non_divisable_expression2(self):
         expression = midi2lily.Expression()
-        expression.children.append(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(4, 4, 4)))
-        self.assertEqual(len(expression.children), 1)
+        expression.add(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(4, 4, 4)))
+        self.assertEqual(len(expression._children), 1)
 
         new_expression = expression.split_at(0)
 
-        self.assertEqual(len(expression.children), 0)
+        self.assertEqual(len(expression._children), 0)
         self.assertEqual(str(new_expression), "{\ng''4\n}")
 
     def test_divisable_expression(self):
         expression = midi2lily.Expression()
-        expression.children.append(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(1, 1, 1)))
-        expression.children.append(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(1, 1, 1)))
+        expression.add(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(1, 1, 1)))
+        expression.add(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(1, 1, 1)))
         self.assertEqual(str(expression), "{\ng''1\ng''1\n}")
 
         new_expression = expression.split_at(1)
@@ -111,12 +111,12 @@ class LilypondExpressionSplitTest(unittest.TestCase):
 
     def test_two_measures(self):
         expression = midi2lily.Expression()
-        expression.children.append(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(4, 4, 4)))
-        expression.children.append(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(4, 4, 4)))
-        expression.children.append(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(4, 4, 4)))
-        expression.children.append(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(4, 4, 4)))
-        expression.children.append(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(4, 2, 4)))
-        expression.children.append(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(4, 2, 4)))
+        expression.add(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(4, 4, 4)))
+        expression.add(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(4, 4, 4)))
+        expression.add(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(4, 4, 4)))
+        expression.add(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(4, 4, 4)))
+        expression.add(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(4, 2, 4)))
+        expression.add(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(4, 2, 4)))
         self.assertEqual(str(expression), "{\ng''4\ng''4\ng''4\ng''4\ng''2\ng''2\n}")
         new_expression = expression.split_at(1)
 
@@ -137,17 +137,17 @@ class LilypondPolyphonicContextTest(unittest.TestCase):
         # voice 1
         melody_expression = midi2lily.Expression()
 
-        melody_expression.children.append(midi2lily.Note(midi2lily.Pitch(72), midi2lily.Duration.get_duration(2, 1, 4)))
+        melody_expression.add(midi2lily.Note(midi2lily.Pitch(72), midi2lily.Duration.get_duration(2, 1, 4)))
 
-        context.children.append(melody_expression)
+        context.add(melody_expression)
 
         # voice 2
         rythm_expression = midi2lily.Expression()
 
-        rythm_expression.children.append(midi2lily.Note(midi2lily.Pitch(64), midi2lily.Duration.get_duration(1, 1, 4)))
-        rythm_expression.children.append(midi2lily.Note(midi2lily.Pitch(67), midi2lily.Duration.get_duration(1, 1, 4)))
+        rythm_expression.add(midi2lily.Note(midi2lily.Pitch(64), midi2lily.Duration.get_duration(1, 1, 4)))
+        rythm_expression.add(midi2lily.Note(midi2lily.Pitch(67), midi2lily.Duration.get_duration(1, 1, 4)))
 
-        context.children.append(rythm_expression)
+        context.add(rythm_expression)
 
         self.assertEqual(str(context), "<<\n{\nc''2\n}\n\\\\\n{\ne'4\ng'4\n}\n>>")
 
@@ -164,7 +164,7 @@ class LilypondGetPitchesTest(unittest.TestCase):
 
     def test_single_pitch(self):
         expression = midi2lily.Expression()
-        expression.children.append(midi2lily.Note(midi2lily.Pitch(60), midi2lily.Duration.get_duration(1, 1, 4)))
+        expression.add(midi2lily.Note(midi2lily.Pitch(60), midi2lily.Duration.get_duration(1, 1, 4)))
 
         self.assertEqual(len(expression.pitches()), 1)
         self.assertEqual(expression.lowest_pitch(), 60)
@@ -173,8 +173,8 @@ class LilypondGetPitchesTest(unittest.TestCase):
 
     def test_unique_pitches(self):
         expression = midi2lily.Expression()
-        expression.children.append(midi2lily.Note(midi2lily.Pitch(60), midi2lily.Duration.get_duration(1, 1, 4)))
-        expression.children.append(midi2lily.Note(midi2lily.Pitch(62), midi2lily.Duration.get_duration(1, 1, 4)))
+        expression.add(midi2lily.Note(midi2lily.Pitch(60), midi2lily.Duration.get_duration(1, 1, 4)))
+        expression.add(midi2lily.Note(midi2lily.Pitch(62), midi2lily.Duration.get_duration(1, 1, 4)))
 
         self.assertEqual(len(expression.pitches()), 2)
         self.assertEqual(expression.lowest_pitch(), 60)
@@ -183,8 +183,8 @@ class LilypondGetPitchesTest(unittest.TestCase):
 
     def test_duplicate_pitches(self):
         expression = midi2lily.Expression()
-        expression.children.append(midi2lily.Note(midi2lily.Pitch(60), midi2lily.Duration.get_duration(1, 1, 4)))
-        expression.children.append(midi2lily.Note(midi2lily.Pitch(60), midi2lily.Duration.get_duration(1, 1, 4)))
+        expression.add(midi2lily.Note(midi2lily.Pitch(60), midi2lily.Duration.get_duration(1, 1, 4)))
+        expression.add(midi2lily.Note(midi2lily.Pitch(60), midi2lily.Duration.get_duration(1, 1, 4)))
 
         self.assertEqual(len(expression.pitches()), 1)
         self.assertEqual(expression.lowest_pitch(), 60)
@@ -193,8 +193,8 @@ class LilypondGetPitchesTest(unittest.TestCase):
 
     def test_bass_clef(self):
         expression = midi2lily.Expression()
-        expression.children.append(midi2lily.Note(midi2lily.Pitch(54), midi2lily.Duration.get_duration(1, 1, 4)))
-        expression.children.append(midi2lily.Note(midi2lily.Pitch(60), midi2lily.Duration.get_duration(1, 1, 4)))
+        expression.add(midi2lily.Note(midi2lily.Pitch(54), midi2lily.Duration.get_duration(1, 1, 4)))
+        expression.add(midi2lily.Note(midi2lily.Pitch(60), midi2lily.Duration.get_duration(1, 1, 4)))
 
         self.assertEqual(len(expression.pitches()), 2)
         self.assertEqual(expression.lowest_pitch(), 54)
@@ -211,7 +211,7 @@ class LilypondStaffTest(unittest.TestCase):
     def test_staff_with_notes(self):
         staff = midi2lily.Staff("trumpet")
         note = midi2lily.Note(midi2lily.Pitch(60), midi2lily.Duration.get_duration(1, 1, 4))
-        staff.children.append(note)
+        staff.add(note)
         self.assertEqual(str(staff), "\\new Staff = \"trumpet\" {\nc'4\n}")
 
 
@@ -336,7 +336,7 @@ class LilyPondExpressionLengthTest(unittest.TestCase):
         expression = midi2lily.Expression()
 
         note = midi2lily.Note(midi2lily.Pitch(60), midi2lily.Duration.get_duration(1, 1, 4))
-        expression.children.append(note)
+        expression.add(note)
 
         self.assertEqual(expression.length(), Fraction(1, 4))
 
@@ -345,7 +345,7 @@ class LilyPondExpressionLengthTest(unittest.TestCase):
 
         for _ in range(4):
             note = midi2lily.Note(midi2lily.Pitch(60), midi2lily.Duration.get_duration(1, 1, 4))
-            expression.children.append(note)
+            expression.add(note)
 
         self.assertEqual(expression.length(), Fraction(4, 4))
 
@@ -354,7 +354,7 @@ class LilyPondExpressionLengthTest(unittest.TestCase):
 
         for _ in range(12):
             note = midi2lily.Note(midi2lily.Pitch(60), midi2lily.Duration.get_duration(1, 1, 4))
-            expression.children.append(note)
+            expression.add(note)
 
         self.assertEqual(expression.length(), Fraction(12, 4))
 
@@ -458,7 +458,7 @@ class HandleMidiNoteTest(unittest.TestCase):
             context.previous_note = midi2lily.handle_midi_note(midi_note, context)
 
         file = midi2lily.File()
-        file.expressions.append(context.staff)
+        file.add(context.staff)
 
         return file
 
@@ -499,7 +499,7 @@ class EndToEndTests(unittest.TestCase):
         self.process_file('test-midi-files/polyphonic.midi', 'test-midi-files/polyphonic.txt')
 
     def atest_canon_d(self):
-        self.process_file('test-midi-files/canon-d-32-bars.midi', 'test-midi-files/canon-d-ostinato.txt', True)
+        self.process_file('test-midi-files/canon-d-32-bars.midi', 'test-midi-files/canon-d-ostinato.txt')
 
     def process_file(self, test, expected, printOutput=False):
 

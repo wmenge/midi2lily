@@ -7,16 +7,23 @@ from functools import reduce
 class Expression:
 
     def __init__(self):
-        # TODO: no external access to self.children
-        self.children = []
-
+        self._children = []
+    
+    def add(self, child):
+        if type(child) is list:
+            self._children.extend(child)
+        else:
+            self._children.append(child)
+    
+    def pop(self):
+        return self._children.pop()
+            
     def get_clef(self):
         if self.lowest_pitch() < 55 and self.highest_pitch() < 67:
             return 'bass'
 
     def length(self):
-        
-        lengths = list(map(lambda x: x.length(), self.children))
+        lengths = list(map(lambda x: x.length(), self._children))
         return sum(lengths)
         
     # removes all expressions after position from this expressions
@@ -24,18 +31,18 @@ class Expression:
     def split_at(self, position):
         length = 0
                 
-        for i, expression in enumerate(self.children):
+        for i, expression in enumerate(self._children):
             length += expression.length()
                 
             if length > position:
                 expression = Expression()
-                expression.children = self.children[i:]
-                self.children = self.children[0:i]
+                expression.add(self._children[i:])
+                self._children = self._children[0:i]
                 return expression
 
     def pitches(self):
         pitches = set()
-        for expression in self.children:
+        for expression in self._children:
             if isinstance(expression, Note):
                 pitches.add(expression.pitch.pitch)
             if isinstance(expression, Chord):
@@ -63,7 +70,7 @@ class Expression:
         if self.get_clef() != None:
             result += "\clef {}\n".format(self.get_clef())
 
-        for expression in self.children:
+        for expression in self._children:
             result += str(expression) + "\n"
         result += "}"
         return result
@@ -72,13 +79,23 @@ class Expression:
 class PolyphonicContext:
 
     def __init__(self):
-        self.children = []
+        self.__children = []
+        
+    def add(self, child):
+        if type(child) is list:
+            self.__children.extend(child)
+        else:
+            self.__children.append(child)
+            
+    # TODO: Try to prevent access to voices
+    def voices(self):
+        return self.__children
 
     def __str__(self):
-        return "<<\n"+ '\n\\\\\n'.join(map(str, self.children)) + "\n>>"
+        return "<<\n"+ '\n\\\\\n'.join(map(str, self.__children)) + "\n>>"
 
     def length(self):
-        lengths = list(map(lambda x: x.length(), self.children))
+        lengths = list(map(lambda x: x.length(), self.__children))
         longest = max(lengths, default=0)
         return longest
 
@@ -96,7 +113,7 @@ class Staff(Expression):
 class StaffGroup(Expression):
 
     def __str__(self):
-        return "\\new StaffGroup <<\n{}\n>>".format("\n".join(map(str, self.children)))
+        return "\\new StaffGroup <<\n{}\n>>".format("\n".join(map(str, self._children)))
 
 # Note, Rest, Chord should be immutable
 class Rest:
@@ -233,11 +250,11 @@ class Position:
         return Position(Fraction(beatFraction.numerator, beatFraction.denominator * denominator))
 
     def __init__(self, fraction):
-        self.__fraction = fraction
+        self._fraction = fraction
     
-    # todo: misnomer
+    # todo: misnomer for position
     def length(self):
-        return self.__fraction
+        return self._fraction
 
     def __eq__(self, other):
         return isinstance(other, self.__class__) and self.length() == other.length()
@@ -263,35 +280,32 @@ class Duration(Position):
         beatFraction = Fraction(ticks, ticks_per_beat)
         return Duration(Fraction(beatFraction.numerator, beatFraction.denominator * denominator))
 
-    def __init__(self, fraction):
-        self.__fraction = fraction
-
     def can_be_expresses_as_simple_note(self):
-        return self.__fraction.numerator == 1
+        return self._fraction.numerator == 1
 
     def can_be_expresses_as_dotted_note(self):
-        return (self.__fraction.denominator > 1) and (((self.__fraction.numerator + 1) % 4) == 0)
+        return (self._fraction.denominator > 1) and (((self._fraction.numerator + 1) % 4) == 0)
         
     def length(self):
-        return self.__fraction
+        return self._fraction
 
     def __str__(self):
 
         if (self.can_be_expresses_as_simple_note()):
             # simple duration
-            return str(self.__fraction.denominator)
+            return str(self._fraction.denominator)
         elif (self.can_be_expresses_as_dotted_note()):
             # dotted duration
-            wholeNote = Fraction((self.__fraction.numerator + 1)//2, self.__fraction.denominator)
-            numberOfDots = int(math.log(self.__fraction.numerator + 1,2)-1)
+            wholeNote = Fraction((self._fraction.numerator + 1)//2, self._fraction.denominator)
+            numberOfDots = int(math.log(self._fraction.numerator + 1,2)-1)
             return str(wholeNote.denominator) + "." * numberOfDots
         else:
             # bruteforce the biggest whole duration we can find
             i = 1
-            while i < self.__fraction.numerator:
-                wholeNote = Fraction(self.__fraction.numerator - i, self.__fraction.denominator)
+            while i < self._fraction.numerator:
+                wholeNote = Fraction(self._fraction.numerator - i, self._fraction.denominator)
                 if wholeNote.numerator == 1:
-                    remainder = Duration(self.__fraction - wholeNote)
+                    remainder = Duration(self._fraction - wholeNote)
                     return str(wholeNote.denominator) + "~ " + str(remainder)
                 i += 1
 
@@ -301,15 +315,31 @@ class Duration(Position):
 class File:
 
     def __init__(self, version="2.19.48"):
-        self.expressions = []
+        self.__children = []
         self.version = version
+        
+    def add(self, child):
+        if type(child) is list:
+            self.__children.extend(child)
+        else:
+            self.__children.append(child)
+            
+    def pop(self):
+        return self.__children.pop()
+            
+    def empty(self):
+        return not self.__children
+        
+    # TODO: prevent access to __children
+    def expressions(self):
+        return self.__children
 
     def __str__(self):
         result = "\\version \"{}\"".format(self.version)
 
-        if (self.expressions != []):
+        if (self.__children != []):
             result += "\n\n"
-            for expression in self.expressions:
+            for expression in self.__children:
                 result += str(expression)
 
         return result
@@ -368,7 +398,7 @@ def note_on_handler(msg, context):
     if (msg.time > 0):
         # indicates a rest
         rest = Rest(Duration.get_duration(msg.time, context.time_signature.ticks_per_beat, context.time_signature.denominator))
-        context.staff.children.append(rest)
+        context.staff.add(rest)
         return rest    
     
 # check if we can omit previous note and work from staff instead
@@ -399,17 +429,17 @@ def handle_midi_note(midi_note, context):
     # if we have arrived here we will need a polyphonic context
     if context.polyphonic_context == None:
         context.polyphonic_context = PolyphonicContext()
-        context.polyphonic_context.children.append(context.staff.split_at(start.length()))
-        context.staff.children.append(context.polyphonic_context)
+        context.polyphonic_context.add(context.staff.split_at(start.length()))
+        context.staff.add(context.polyphonic_context)
     
     # try to fit the note into any of the children of the polyphonic context
-    for expression in context.polyphonic_context.children:    
+    for expression in context.polyphonic_context.voices():    
        fitted_note = fit_note_in_expression(note, start, expression, context.previous_note)
        if fitted_note != None: return fitted_note
         
     # if we arrive here the note does not fit in any of the existing voices, create a new one
     expression = Expression()
-    context.polyphonic_context.children.append(expression)
+    context.polyphonic_context.add(expression)
 
     fitted_note = fit_note_in_expression(note, start, expression, context.previous_note)
     if fitted_note != None: return fitted_note
@@ -419,7 +449,7 @@ def fit_note_in_expression(note, start, expression, previous_note):
     # check if this note can be added to the score as a simple note (no polyphony, no chord)
     # if gap add rest
     if (start.length() >= expression.length()):
-        expression.children.append(note)
+        expression.add(note)
         return note
     
     # check if this note can be added to the score as a chord
@@ -428,11 +458,10 @@ def fit_note_in_expression(note, start, expression, previous_note):
     
         if (start.length() >= start_of_previous_note) and (note.duration == previous_note.duration):
             chord = Chord.construct_chord(note, previous_note)
-            expression.children.pop()
-            expression.children.append(chord)
+            expression.pop()
+            expression.add(chord)
             return chord
-    
-                    
+      
 def convert(midifile):
 
     file = File()
@@ -452,14 +481,15 @@ def convert(midifile):
             
             # first track gets added directly to file.
             # a second track causes a staffgroup to be inserted
-            if len(file.expressions) == 0:
-                file.expressions.append(context.staff)
+            if file.empty():
+                file.add(context.staff)
             else:
                 if staffGroup == None:
                     staffGroup = StaffGroup()
-                    staffGroup.children.extend(file.expressions)
-                    file.expressions = [staffGroup]
-                staffGroup.children.append(context.staff)
+                    staffGroup.add(file.expressions())
+                    file.pop()
+                    file.add(staffGroup)
+                staffGroup.add(context.staff)
 
         for msg in track:
             
