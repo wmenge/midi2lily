@@ -103,11 +103,11 @@ class PolyphonicContext:
 class Staff(Expression):
 
     def __init__(self, name="new staff"):
-        self.name = name
+        self.__name = name
         super().__init__()
 
     def __str__(self):
-        return "\\new Staff = \"{}\" ".format(self.name) + super().__str__()
+        return "\\new Staff = \"{}\" ".format(self.__name) + super().__str__()
 
 # Groups a number of staves. A simple song is expected to have one staff group
 class StaffGroup(Expression):
@@ -316,7 +316,7 @@ class File:
 
     def __init__(self, version="2.19.48"):
         self.__children = []
-        self.version = version
+        self.__version = version
         
     def add(self, child):
         if type(child) is list:
@@ -335,7 +335,7 @@ class File:
         return self.__children
 
     def __str__(self):
-        result = "\\version \"{}\"".format(self.version)
+        result = "\\version \"{}\"".format(self.__version)
 
         if (self.__children != []):
             result += "\n\n"
