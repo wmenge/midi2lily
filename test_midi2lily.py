@@ -321,6 +321,20 @@ class LilypondNoteTest(unittest.TestCase):
         duration = midi2lily.Duration.get_duration(1, 1, 4)
         note = midi2lily.Chord(pitches, duration)
         self.assertEqual(str(note), "<c' d'>4")
+        
+    def testUniquePitchesInChord(self):
+        def testChord(self):
+            pitches = [midi2lily.Pitch(60), midi2lily.Pitch(62), midi2lily.Pitch(62)]
+            duration = midi2lily.Duration.get_duration(1, 1, 4)
+            note = midi2lily.Chord(pitches, duration)
+            self.assertEqual(str(note), "<c' d'>4")
+
+    def testPitchesAreSortedWhenPrinted(self):
+        def testChord(self):
+            pitches = [midi2lily.Pitch(62), midi2lily.Pitch(60)]
+            duration = midi2lily.Duration.get_duration(1, 1, 4)
+            note = midi2lily.Chord(pitches, duration)
+            self.assertEqual(str(note), "<c' d'>4")
 
 
 class LilyPondExpressionLengthTest(unittest.TestCase):

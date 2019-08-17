@@ -172,22 +172,22 @@ class Chord:
         assert(isinstance(note2, Note) or isinstance(note2, Chord))
         assert(note1.duration == note2.duration)
         
-        pitches = [] # should be a set
+        pitches = set()
         
         if isinstance(note1, Note):
-            pitches.append(note1.pitch)
+            pitches.add(note1.pitch)
         else:
-            pitches.extend(note1.pitches)
+            pitches.update(note1.pitches)
         
         if isinstance(note2, Note):
-            pitches.append(note2.pitch)
+            pitches.add(note2.pitch)
         else:
-            pitches.extend(note2.pitches)
+            pitches.update(note2.pitches)
         
         return Chord(pitches, note1.duration)
         
     def __init__(self, pitches, duration):
-        self.pitches = pitches # should be a set
+        self.pitches = set(pitches)
         self.duration = duration
 
     def length(self):
@@ -201,8 +201,7 @@ class Chord:
 
     def __str__(self):
         assert(isinstance(self.duration, Duration))
-        self.pitches.sort()
-        return str("<{}>".format(' '.join(map(str, self.pitches)))) + str(self.duration)
+        return str("<{}>".format(' '.join(map(str, sorted(self.pitches))))) + str(self.duration)
 
 # Converts a midi note number in a note name
 # TODO: enharmonics, respect key signature
