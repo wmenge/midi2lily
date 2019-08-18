@@ -102,12 +102,20 @@ class PolyphonicContext:
         lengths = list(map(lambda x: x.length(), self.__children))
         longest = max(lengths, default=0)
         return longest
+
+    def is_balanced(self):
+        # Checks if all children have equal length (this
+        # means that the polyphonic context can be ended)
+        lengths = set(map(lambda x: x.length(), self.__children))
+        return len(self.__children) > 1 and len(lengths) == 1
     
     def sort_function(e):
         # when printing a polyphonic context, sort by average pitch, so that 
         # highest voice is printed first and is drawn with stems up
         pitches = e.pitches()
         return sum(pitches) / len(pitches)
+        
+        
 
 # A staff is a command followed by an expression that is contained in the staff
 class Staff(Expression):
@@ -445,13 +453,17 @@ def handle_midi_note(midi_note, context):
     for expression in context.polyphonic_context.voices():
         # recalculate start in terms of expression
         local_start = Position(start.length() - (context.staff.length() - context.polyphonic_context.length()))
-        if fit_note_in_expression(note, local_start, expression): return
+        note_fits = fit_note_in_expression(note, local_start, expression)
+        if context.polyphonic_context.is_balanced(): context.polyphonic_context = None
+        if note_fits: return
         
     # if we arrive here the note does not fit in any of the existing voices, create a new one
     expression = Expression()
     context.polyphonic_context.add(expression)
 
-    if fit_note_in_expression(note, Position(0), expression): return
+    note_fits = fit_note_in_expression(note, Position(0), expression)
+    #if context.polyphonic_context.is_balanced(): context.polyphonic_context = None    
+    if note_fits: return
    
 # TODO: Add to expression class
 def fit_note_in_expression(note, start, expression):

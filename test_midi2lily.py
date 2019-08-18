@@ -484,7 +484,26 @@ class HandleMidiNoteTest(unittest.TestCase):
 
         file = self.build_file(midi_notes, context)
         self.assertEqual(str(file), self.get_expected('test-midi-files/polyphonic2.txt'))
-    
+        
+    def test_consecutive_polyphonic_contexts(self):
+        
+        midi_notes = [
+            midi2lily.MidiNote(0, 2, 72),
+            midi2lily.MidiNote(0, 1, 64),
+            midi2lily.MidiNote(1, 2, 67),
+            midi2lily.MidiNote(2, 4, 72),
+            midi2lily.MidiNote(2, 3, 64),
+            midi2lily.MidiNote(3, 4, 67)
+        ]
+
+        context = midi2lily.ParseContext()
+        context.time_signature = midi2lily.TimeSignature(4, 4, 1)
+        context.staff = midi2lily.Staff(':1')
+
+        file = self.build_file(midi_notes, context)
+        # TODO: consecutive contexts should be merged!
+        self.assertEqual(str(file), self.get_expected('test-midi-files/polyphonic3.txt'))
+
     def build_file(self, midi_notes, context):
         for midi_note in midi_notes:
             context.previous_note = midi2lily.handle_midi_note(midi_note, context)
