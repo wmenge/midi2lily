@@ -2,10 +2,17 @@ import math
 from fractions import Fraction
 from functools import reduce
 
-# Every piece of Lilypond information is contained in an expression
+# Every piece of Lilypond information is an expression
+class Expression:
+    
+    def length(self):
+        return 0
+
+
+# Every expression can be contained in a compound expression
 # { }
 # TODO: split into rendering part and parse utility part
-class Expression:
+class CompoundExpression(Expression):
 
     def __init__(self):
         self._children = []
@@ -39,7 +46,7 @@ class Expression:
             length += expression.length()
                 
             if length > position:
-                expression = Expression()
+                expression = CompoundExpression()
                 expression.add(self._children[i:])
                 self._children = self._children[0:i]
                 return expression
@@ -51,7 +58,7 @@ class Expression:
                 pitches.add(expression.pitch.pitch)
             if isinstance(expression, Chord):
                 pitches.update(pitch.pitch for pitch in expression.pitches)
-            elif isinstance(expression, Expression):
+            elif isinstance(expression, CompoundExpression):
                 pitches.update(pitch.pitch for pitch in expression.pitches())
         return pitches
         
@@ -80,7 +87,7 @@ class Expression:
         return result
 
 # Container for multiple voices. Expected to be similar in length
-class PolyphonicContext:
+class PolyphonicContext(Expression):
 
     def __init__(self):
         self.__children = []
@@ -115,10 +122,8 @@ class PolyphonicContext:
         pitches = e.pitches()
         return sum(pitches) / len(pitches)
         
-        
-
 # A staff is a command followed by an expression that is contained in the staff
-class Staff(Expression):
+class Staff(CompoundExpression):
 
     def __init__(self, name="new staff"):
         self.__name = name
@@ -128,13 +133,13 @@ class Staff(Expression):
         return "\\new Staff = \"{}\" ".format(self.__name) + super().__str__()
 
 # Groups a number of staves. A simple song is expected to have one staff group
-class StaffGroup(Expression):
+class StaffGroup(CompoundExpression):
 
     def __str__(self):
         return "\\new StaffGroup <<\n{}\n>>".format("\n".join(map(str, self._children)))
 
 # Note, Rest, Chord should be immutable
-class Rest:
+class Rest(Expression):
 
     def __init__(self, duration):
         self.duration = duration
@@ -156,7 +161,7 @@ class Rest:
         # as the previous. For rests this does not work
         return 'r' + str(self.duration).replace('~ ', ' r')
         
-class Note:
+class Note(Expression):
     
     def get_from_midi_note(midi_note, context):
         pitch = Pitch(midi_note.pitch)
@@ -182,7 +187,7 @@ class Note:
         return str(self.pitch) + str(self.duration)
 
 # add helper method to create a chord from note + pitch or chord + pitch
-class Chord:
+class Chord(Expression):
     
     def construct_chord(note1, note2):
         
@@ -458,7 +463,7 @@ def handle_midi_note(midi_note, context):
         if note_fits: return
         
     # if we arrive here the note does not fit in any of the existing voices, create a new one
-    expression = Expression()
+    expression = CompoundExpression()
     context.polyphonic_context.add(expression)
 
     note_fits = fit_note_in_expression(note, Position(0), expression)
