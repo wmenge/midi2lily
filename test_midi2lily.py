@@ -500,7 +500,6 @@ class HandleMidiNoteTest(unittest.TestCase):
         context.staff = midi2lily.Staff(':1')
 
         file = self.build_file(midi_notes, context)
-        # TODO: consecutive contexts should be merged!
         self.assertEqual(str(file), self.get_expected('test-midi-files/polyphonic3.txt'))
 
     def build_file(self, midi_notes, context):

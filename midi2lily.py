@@ -8,7 +8,6 @@ class Expression:
     def length(self):
         return 0
 
-
 # Every expression can be contained in a compound expression
 # { }
 # TODO: split into rendering part and parse utility part
@@ -27,7 +26,8 @@ class CompoundExpression(Expression):
         return self._children.pop()
         
     def last(self):
-        return self._children[-1]
+        if len(self._children) > 0:
+            return self._children[-1]
             
     def get_clef(self):
         if self.lowest_pitch() < 55 and self.highest_pitch() < 67:
@@ -75,6 +75,10 @@ class CompoundExpression(Expression):
     def formatted_length(self):
         return Expression.format_length(self.get_length)
 
+    def merge(self, other):
+        assert(isinstance(other, CompoundExpression))
+        self._children.extend(other._children)
+
     def __str__(self):
         result = "{\n"
 
@@ -90,6 +94,7 @@ class CompoundExpression(Expression):
 class PolyphonicContext(Expression):
 
     def __init__(self):
+        # TODO: rename to voices
         self.__children = []
         
     def add(self, child):
@@ -115,7 +120,18 @@ class PolyphonicContext(Expression):
         # means that the polyphonic context can be ended)
         lengths = set(map(lambda x: x.length(), self.__children))
         return len(self.__children) > 1 and len(lengths) == 1
-    
+        
+    def merge(self, other):
+
+        assert(isinstance(other, PolyphonicContext))
+        assert(self.is_balanced())
+
+        # for now, just randomly add contexts of other to self
+        # TODO: keep voices together
+        for voice in self.__children:
+            if len(other._PolyphonicContext__children) > 0:
+                voice.merge(other._PolyphonicContext__children.pop(0))
+            
     def sort_function(e):
         # when printing a polyphonic context, sort by average pitch, so that 
         # highest voice is printed first and is drawn with stems up
@@ -450,9 +466,7 @@ def handle_midi_note(midi_note, context):
             
     # if we have arrived here we will need a polyphonic context
     if context.polyphonic_context == None:
-        context.polyphonic_context = PolyphonicContext()
-        context.polyphonic_context.add(context.staff.split_at(start.length()))
-        context.staff.add(context.polyphonic_context)
+        context.polyphonic_context = setup_polyphonic_context(context.staff, start)
     
     # try to fit the note into any of the children of the polyphonic context
     for expression in context.polyphonic_context.voices():
@@ -469,6 +483,21 @@ def handle_midi_note(midi_note, context):
     note_fits = fit_note_in_expression(note, Position(0), expression)
     #if context.polyphonic_context.is_balanced(): context.polyphonic_context = None    
     if note_fits: return
+    
+def setup_polyphonic_context(expression, start):
+    polyphonic_context = PolyphonicContext()
+    polyphonic_context.add(expression.split_at(start.length()))
+   
+    # check if last expression is a polyphonic expression. In that
+    # case, do not create a new one, but append to existing one
+    if isinstance(expression.last(), PolyphonicContext):
+        existing_polyphonic_context = expression.last()
+        existing_polyphonic_context.merge(polyphonic_context)
+        polyphonic_context = existing_polyphonic_context
+    else:
+        expression.add(polyphonic_context)
+    
+    return polyphonic_context
    
 # TODO: Add to expression class
 def fit_note_in_expression(note, start, expression):
