@@ -281,7 +281,10 @@ class Position:
         return isinstance(other, self.__class__) and self.length() >= other.length()
     
     def __hash__(self):
-        return hash(self.fraction)
+        return hash(self._fraction)
+
+    def __str__(self):
+        return str(self._fraction)
 
 class Duration(Position):
 
@@ -439,14 +442,16 @@ def handle_midi_note(midi_note, context):
         context.staff.add(context.polyphonic_context)
     
     # try to fit the note into any of the children of the polyphonic context
-    for expression in context.polyphonic_context.voices():    
-       if fit_note_in_expression(note, start, expression): return
+    for expression in context.polyphonic_context.voices():
+        # recalculate start in terms of expression
+        local_start = Position(start.length() - (context.staff.length() - context.polyphonic_context.length()))
+        if fit_note_in_expression(note, local_start, expression): return
         
     # if we arrive here the note does not fit in any of the existing voices, create a new one
     expression = Expression()
     context.polyphonic_context.add(expression)
 
-    if fit_note_in_expression(note, start, expression): return
+    if fit_note_in_expression(note, Position(0), expression): return
    
 # TODO: Add to expression class
 def fit_note_in_expression(note, start, expression):
