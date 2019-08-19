@@ -153,11 +153,10 @@ class StaffGroup(CompoundExpression):
 
 # Note, Rest, Chord should be immutable
 class Rest(Expression):
-
+    
     def __init__(self, duration):
         self.duration = duration
     
-    # TODO: Generalized super class?    
     def length(self):
         return self.duration.length()
 
@@ -418,8 +417,7 @@ class ParseContext:
         self.polyphonic_context = None
         self.time_signature = None
         self.active_pitches = {}
-        self.midi_notes = []
-
+        
 def is_note_on_message(msg):
     return msg.type == 'note_on' and msg.velocity > 0
 
@@ -427,38 +425,26 @@ def is_note_off_message(msg):
     return msg.type == 'note_off' or (msg.type == 'note_on' and msg.velocity == 0)
 
 def note_on_handler(msg, context):
-
     # Add pitch to list of active pitches and their start position
     context.active_pitches[msg.note] = context.position
-
-    if (msg.time > 0):
-        # indicates a rest
-        rest = Rest(Duration.get_duration(msg.time, context.time_signature.ticks_per_beat, context.time_signature.denominator))
-        context.staff.add(rest)
-        return rest    
     
-# check if we can omit previous note and work from staff instead
 def note_off_handler(msg, context):
     midi_note = convert_to_midi_note(msg, context)
     handle_midi_note(midi_note, context)
-    
+
 def convert_to_midi_note(msg, context):
-    
     assert msg.note in context.active_pitches
     
     start_position = context.active_pitches.pop(msg.note)
     duration = context.position - start_position
-    
     midi_note = MidiNote(start_position, context.position, msg.note)
     
     return midi_note
 
 def handle_midi_note(midi_note, context):
-    
     note = Note.get_from_midi_note(midi_note, context)
-    
     start = Position.get_position(midi_note.start, context.time_signature.ticks_per_beat, context.time_signature.denominator)
-        
+    
     if fit_note_in_expression(note, start, context.staff): return
             
     # if we have arrived here we will need a polyphonic context
@@ -479,10 +465,9 @@ def handle_midi_note(midi_note, context):
     # if we arrive here the note does not fit in any of the existing voices, create a new one
     expression = CompoundExpression()
     context.polyphonic_context.add(expression)
+    local_start = Position(start.length() - (context.staff.length() - context.polyphonic_context.length()))
 
-    note_fits = fit_note_in_expression(note, Position(0), expression)
-    #if context.polyphonic_context.is_balanced(): context.polyphonic_context = None    
-    if note_fits: return
+    if fit_note_in_expression(note, local_start, expression): return
     
 def setup_polyphonic_context(expression, start):
     polyphonic_context = PolyphonicContext()
@@ -503,7 +488,11 @@ def setup_polyphonic_context(expression, start):
 # TODO: Add to expression class
 def fit_note_in_expression(note, start, expression):
     # check if this note can be added to the score as a simple note (no polyphony, no chord)
+
     # if gap add rest
+    if (start.length() > expression.length()):
+        expression.add(Rest(Duration(start.length() - expression.length())))
+
     if (start.length() >= expression.length()):
         expression.add(note)
         return True

@@ -524,6 +524,47 @@ class HandleMidiNoteTest(unittest.TestCase):
         file = self.build_file(midi_notes, context)
         self.assertEqual(str(file), self.get_expected('test-midi-files/polyphonic4.txt'))
 
+    def test_four_voices_in_polyphonic_contexts_with_rests(self):
+        
+        midi_notes = [
+            # voice 1
+            midi2lily.MidiNote(0, 4, 60),
+            # voice 2
+            midi2lily.MidiNote(1, 4, 64),
+            # voice 3
+            midi2lily.MidiNote(2, 4, 67),
+            midi2lily.MidiNote(3, 4, 70)
+        ]
+
+        context = midi2lily.ParseContext()
+        context.time_signature = midi2lily.TimeSignature(4, 4, 1)
+        context.staff = midi2lily.Staff(':1')
+
+        file = self.build_file(midi_notes, context)
+        self.assertEqual(str(file), self.get_expected('test-midi-files/polyphonic5.txt'))
+
+    def test_two_voices_with_rests(self):
+        
+        midi_notes = [
+            # voice 1
+            midi2lily.MidiNote(0, 4, 60),
+            midi2lily.MidiNote(4, 8, 60),
+            # voice 2
+            midi2lily.MidiNote(1, 2, 64),
+            midi2lily.MidiNote(2, 3, 72),
+            midi2lily.MidiNote(3, 4, 64),
+            midi2lily.MidiNote(5, 6, 64),
+            midi2lily.MidiNote(6, 7, 67),
+            midi2lily.MidiNote(7, 8, 64),
+        ]
+
+        context = midi2lily.ParseContext()
+        context.time_signature = midi2lily.TimeSignature(4, 8, 1)
+        context.staff = midi2lily.Staff(':1')
+
+        file = self.build_file(midi_notes, context)
+        self.assertEqual(str(file), self.get_expected('test-midi-files/polyphonic6.txt'))
+
     def build_file(self, midi_notes, context):
         for midi_note in midi_notes:
             context.previous_note = midi2lily.handle_midi_note(midi_note, context)
