@@ -1,13 +1,7 @@
 \version "2.19.48"
 
-\new Staff = "Basso" {
+\new Staff = "Basso" \relative c' {
 \clef bass
-d4
-a,4
-b,4
-fis,4
-g,4
-d,4
-g,4
-a,4
+d,4 a b fis |
+g d g a |
 }

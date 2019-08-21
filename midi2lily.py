@@ -2,11 +2,35 @@ import math
 from fractions import Fraction
 from functools import reduce
 
+# TODO Split into File render context and Staff Render context
+# TODO Move lots of decision making in __str__ to render context
+# TODO Split __str__ in two versions: one for context, one without
+class RenderContext:
+
+    def __init__(self):
+        self.position = 0
+        self.time_signature = TimeSignature(4, 4)
+        self.previous_pitch = None
+        self.previous_duration = None
+        self.relative = True
+        self.relative_base = 60
+
+        # bad hack to get relative pitches for chords right. refactor
+        self.previous_pitch = None
+
 # Every piece of Lilypond information is an expression
 class Expression:
     
     def length(self):
         return 0
+
+class TextExpression(Expression):
+    
+    def __init__(self, content):
+        self.__content = content
+        
+    def __str__(self):
+        return self.__content
 
 # Every expression can be contained in a compound expression
 # { }
@@ -79,14 +103,30 @@ class CompoundExpression(Expression):
         assert(isinstance(other, CompoundExpression))
         self._children.extend(other._children)
 
-    def __str__(self):
-        result = "{\n"
+    def __str__(self, context = None):
+
+        result = ""
+
+        if isinstance(context, RenderContext) and context.relative:
+            context.relative_base = 60
+            context.previous_pitch = None
+            result += str(TextExpression("\\relative {} ".format(str(Pitch(context.relative_base)))))
+        
+        result += "{\n"
 
         if self.get_clef() != None:
             result += "\clef {}\n".format(self.get_clef())
+            
 
         for expression in self._children:
-            result += str(expression) + "\n"
+            result += expression.__str__(context) + " "
+            
+            # If previouse expression completely fills up this measure
+            # add a measure sign (this is optional for lilypond, but will
+            # be validated if it is there)
+            if isinstance(context, RenderContext) and context.position % Fraction(context.time_signature.numerator, context.time_signature.numerator) == 0:
+                result += "|\n"
+            
         result += "}"
         return result
 
@@ -103,9 +143,6 @@ class PolyphonicContext(Expression):
     # TODO: Try to prevent access to voices
     def voices(self):
         return self.__voices
-
-    def __str__(self):
-        return "<<\n"+ '\n\\\\\n'.join(map(str, sorted(self.__voices, key=PolyphonicContext.sort_function, reverse=True))) + "\n>>"
 
     def length(self):
         lengths = list(map(lambda x: x.length(), self.__voices))
@@ -135,6 +172,23 @@ class PolyphonicContext(Expression):
         pitches = e.pitches()
         return sum(pitches) / len(pitches)
         
+    def __str__(self, context = None):
+        voices_representations = []
+        
+        if isinstance(context, RenderContext):
+            local_start_position = context.position
+        
+        for voice in sorted(self.__voices, key=PolyphonicContext.sort_function, reverse=True):
+            # each voice starts at the same position
+            if isinstance(context, RenderContext):
+                context.position = local_start_position
+            voices_representations.append(voice.__str__(context))
+        
+        return "<<\n"+ '\n\\\\\n'.join(voices_representations) + "\n>>"
+        
+        if isinstance(context, RenderContext):
+            context.position = local_start_position + self.length()
+    
 # A staff is a command followed by an expression that is contained in the staff
 class Staff(CompoundExpression):
 
@@ -142,14 +196,20 @@ class Staff(CompoundExpression):
         self.__name = name
         super().__init__()
 
-    def __str__(self):
-        return "\\new Staff = \"{}\" ".format(self.__name) + super().__str__()
+    def __str__(self, context = None):
+        
+        if isinstance(context, RenderContext): 
+            context.position = 0
+            context.previous_pitch = None
+            context.previous_duration = None
+
+        return "\\new Staff = \"{}\" ".format(self.__name) + super().__str__(context)
 
 # Groups a number of staves. A simple song is expected to have one staff group
 class StaffGroup(CompoundExpression):
 
-    def __str__(self):
-        return "\\new StaffGroup <<\n{}\n>>".format("\n".join(map(str, self._children)))
+    def __str__(self, context = None):
+        return "\\new StaffGroup <<\n\n{}\n\n>>".format("\n\n".join([e.__str__(context) for e in self._children]))
 
 # Note, Rest, Chord should be immutable
 class Rest(Expression):
@@ -166,18 +226,20 @@ class Rest(Expression):
     def __hash__(self):
         return hash(self.duration)
 
-    def __str__(self):
+    def __str__(self, context = None):
         assert(isinstance(self.duration, Duration))
+                
         # bad hack: compound durations are represented as:
         # "1~ 4" where the second note implicitly gets the same pitch
         # as the previous. For rests this does not work
-        return 'r' + str(self.duration).replace('~ ', ' r')
+        result = 'r' + self.duration.__str__(context).replace('~ ', ' r')
+        return result
         
 class Note(Expression):
     
     def get_from_midi_note(midi_note, context):
         pitch = Pitch(midi_note.pitch)
-        duration = Duration.get_duration(midi_note.end - midi_note.start, context.time_signature.ticks_per_beat, context.time_signature.denominator)
+        duration = Duration.get_duration(midi_note.end - midi_note.start, context.ticks_per_beat, context.time_signature.denominator)
         return Note(pitch, duration)
 
     def __init__(self, pitch, duration):
@@ -194,9 +256,12 @@ class Note(Expression):
     def __hash__(self):
         return hash(tuple(self.pitch)) + hash(self.duration)
 
-    def __str__(self):
+    def __str__(self, context = None):
         assert(isinstance(self.duration, Duration))
-        return str(self.pitch) + str(self.duration)
+        assert(isinstance(self.pitch, Pitch))
+        
+        result = self.pitch.__str__(context) + self.duration.__str__(context)
+        return result
 
 # add helper method to create a chord from note + pitch or chord + pitch
 class Chord(Expression):
@@ -234,9 +299,23 @@ class Chord(Expression):
     def __hash__(self):
         return hash(tuple(self.pitches)) + hash(self.duration)
 
-    def __str__(self):
+    def __str__(self, context = None):
         assert(isinstance(self.duration, Duration))
-        return str("<{}>".format(' '.join(map(str, sorted(self.pitches))))) + str(self.duration)
+
+        pitches = []
+
+        #' '.join([p.__str__(context) for p in sorted(self.pitches)]))
+        # bad hack to get relative pitches in a chord to play nice
+        for p in sorted(self.pitches):
+            pitches.append(p.__str__(context))
+            #context.previous_pitch = p.pitch
+
+        result = str("<{}>{}".format(' '.join(pitches), self.duration.__str__(context)))
+        if isinstance(context, RenderContext): context.previous_duration = self.duration
+        # bad hack to get relative pitches after a chord to play nice
+        if isinstance(context, RenderContext): context.previous_pitch = sorted(self.pitches)[0]
+
+        return result
 
 # Converts a midi note number in a note name
 # TODO: enharmonics, respect key signature
@@ -246,6 +325,7 @@ class Pitch:
     noteNames = [ 'c', 'cis', 'd', 'dis', 'e', 'f', 'fis', 'g', 'gis', 'a', 'ais', 'b' ]
 
     def __init__(self, pitch):
+        # TODO: Rename to midi note number
         self.pitch = pitch
 
     def __eq__(self, other):
@@ -266,13 +346,32 @@ class Pitch:
     def __hash__(self):
         return hash(self.pitch)
 
-    def __str__(self):
+    def __str__(self, context=None):
+
+        octave_string = ""
+
         # 21 = a0, 12 notes in an octave
         # pitch 60 is a C' (, and ' denote octaves, suchs A0 a,, and C3 c'''
-        octave = (self.pitch // 12) - 4
-        sign = "'" if (octave > 0) else ","
-        octaveString = sign * abs(octave)
-        return self.noteNames[self.pitch % 12] + octaveString
+        if isinstance(context, RenderContext) and context.relative:
+            
+            reference_pitch = context.relative_base
+            
+            if isinstance(context.previous_pitch, Pitch):
+                reference_pitch = context.previous_pitch.pitch
+
+            if reference_pitch - self.pitch > 5:
+                octave_string = ","
+            elif self.pitch - reference_pitch > 6:
+                octave_string = "'"
+                
+            context.previous_pitch = self
+                
+        else:
+            octave = (self.pitch // 12) - 4
+            sign = "'" if (octave > 0) else ","
+            octave_string = sign * abs(octave)
+            
+        return self.noteNames[self.pitch % 12] + octave_string
         
 # A duration measured as a fraction
 # also doubles as position
@@ -326,8 +425,19 @@ class Duration(Position):
     def length(self):
         return self._fraction
 
-    def __str__(self):
-
+    def __str__(self, context = None):
+        
+        if isinstance(context, RenderContext):
+            context.position += self.length()
+            
+            # type setting optimization: If this note has
+            # the same duration as the previous note, you can 
+            # omit the duration
+            previous_duration = context.previous_duration
+            context.previous_duration = self
+            if self == previous_duration:
+                return ""
+                
         if (self.can_be_expresses_as_simple_note()):
             # simple duration
             return str(self._fraction.denominator)
@@ -372,24 +482,25 @@ class File:
         return self.__children
 
     def __str__(self):
+        
+        context = RenderContext()
         result = "\\version \"{}\"".format(self.__version)
 
         if (self.__children != []):
             result += "\n\n"
             for expression in self.__children:
-                result += str(expression)
+                result += expression.__str__(context)
 
         return result
 
-# TODO: Add midi resolution (ticks per beat)
-class TimeSignature:
+class TimeSignature(Expression):
     
-    def __init__(self, numerator, denominator, ticks_per_beat):
+    def __init__(self, numerator, denominator):
         self.numerator = numerator
         self.denominator = denominator
-        self.ticks_per_beat = ticks_per_beat
         
-    def __str__(self):
+    def __str__(self, context = None):
+        if isinstance(context, ParseContext): context.time_signature = self
         return "\\time {}/{}".format(self.numerator, self.denominator)
         
 # a representation of midi note as start, end and pitch  
@@ -416,6 +527,7 @@ class ParseContext:
         self.staff = None
         self.polyphonic_context = None
         self.time_signature = None
+        self.ticks_per_beat = 0
         self.active_pitches = {}
         
 def is_note_on_message(msg):
@@ -443,7 +555,7 @@ def convert_to_midi_note(msg, context):
 
 def handle_midi_note(midi_note, context):
     note = Note.get_from_midi_note(midi_note, context)
-    start = Position.get_position(midi_note.start, context.time_signature.ticks_per_beat, context.time_signature.denominator)
+    start = Position.get_position(midi_note.start, context.ticks_per_beat, context.time_signature.denominator)
     
     if fit_note_in_expression(note, start, context.staff): return
             
@@ -545,7 +657,8 @@ def convert(midifile):
             
             # for now, ignore changes in time signature mid song
             if msg.type == 'time_signature' and context.time_signature == None:
-                context.time_signature = TimeSignature(msg.numerator, msg.denominator, midifile.ticks_per_beat)
+                context.time_signature = TimeSignature(msg.numerator, msg.denominator)
+                context.ticks_per_beat = midifile.ticks_per_beat
 
             if is_note_on_message(msg):
                 note_on_handler(msg, context)

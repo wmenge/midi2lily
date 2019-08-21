@@ -26,7 +26,7 @@ class LilypondFileTest(unittest.TestCase):
     def test_file_with_empty_expression(self):
         file = midi2lily.File("1")
         file.add(midi2lily.CompoundExpression())
-        self.assertEqual(str(file), "\\version \"1\"\n\n{\n}")
+        self.assertEqual(str(file), "\\version \"1\"\n\n\\relative c\' {\n}")
 
     def test_file_with_staff_with_notes(self):
         file = midi2lily.File("1")
@@ -47,9 +47,9 @@ class LilypondFileTest(unittest.TestCase):
         staff.add(midi2lily.Note(midi2lily.Pitch(67), midi2lily.Duration.get_duration(4, 4, 4)))
 
         file.add(staff)
-
+        
         self.assertEqual(str(file),
-                         "\\version \"1\"\n\n\\new Staff = \"trumpet\" {\ng''4\ng''4\ng''4.\nf''8\ne''8.\nd''16\nc''8.\ne''16\nd''4\ng'4\n}")
+                         "\\version \"1\"\n\n\\new Staff = \"trumpet\" \\relative c' {\ng'4 g g4. f8 |\ne8. d16 c8. e16 d4 g, |\n}")
 
 
 class LilypondCompoundExpressionTest(unittest.TestCase):
@@ -64,7 +64,7 @@ class LilypondCompoundExpressionTest(unittest.TestCase):
         note = midi2lily.Note(midi2lily.Pitch(60), midi2lily.Duration.get_duration(1, 1, 4))
         expression.add(note)
 
-        self.assertEqual(str(expression), "{\nc'4\n}")
+        self.assertEqual(str(expression), "{\nc'4 }")
 
 class LilypondCompoundExpressionSplitTest(unittest.TestCase):
 
@@ -95,18 +95,18 @@ class LilypondCompoundExpressionSplitTest(unittest.TestCase):
         new_expression = expression.split_at(0)
 
         self.assertEqual(len(expression._children), 0)
-        self.assertEqual(str(new_expression), "{\ng''4\n}")
+        self.assertEqual(str(new_expression), "{\ng''4 }")
 
     def test_divisable_expression(self):
         expression = midi2lily.CompoundExpression()
         expression.add(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(1, 1, 1)))
         expression.add(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(1, 1, 1)))
-        self.assertEqual(str(expression), "{\ng''1\ng''1\n}")
+        self.assertEqual(str(expression), "{\ng''1 g''1 }")
 
         new_expression = expression.split_at(1)
 
-        self.assertEqual(str(expression), "{\ng''1\n}")
-        self.assertEqual(str(new_expression), "{\ng''1\n}")
+        self.assertEqual(str(expression), "{\ng''1 }")
+        self.assertEqual(str(new_expression), "{\ng''1 }")
 
     def test_two_measures(self):
         expression = midi2lily.CompoundExpression()
@@ -116,11 +116,11 @@ class LilypondCompoundExpressionSplitTest(unittest.TestCase):
         expression.add(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(4, 4, 4)))
         expression.add(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(4, 2, 4)))
         expression.add(midi2lily.Note(midi2lily.Pitch(79), midi2lily.Duration.get_duration(4, 2, 4)))
-        self.assertEqual(str(expression), "{\ng''4\ng''4\ng''4\ng''4\ng''2\ng''2\n}")
+        self.assertEqual(str(expression), "{\ng''4 g''4 g''4 g''4 g''2 g''2 }")
         new_expression = expression.split_at(1)
 
-        self.assertEqual(str(expression), "{\ng''4\ng''4\ng''4\ng''4\n}")
-        self.assertEqual(str(new_expression), "{\ng''2\ng''2\n}")
+        self.assertEqual(str(expression), "{\ng''4 g''4 g''4 g''4 }")
+        self.assertEqual(str(new_expression), "{\ng''2 g''2 }")
 
 
 class LilypondPolyphonicContextTest(unittest.TestCase):
@@ -148,7 +148,7 @@ class LilypondPolyphonicContextTest(unittest.TestCase):
 
         context.add(rythm_expression)
 
-        self.assertEqual(str(context), "<<\n{\nc''2\n}\n\\\\\n{\ne'4\ng'4\n}\n>>")
+        self.assertEqual(str(context), "<<\n{\nc''2 }\n\\\\\n{\ne'4 g'4 }\n>>")
 
 
 class LilypondGetPitchesTest(unittest.TestCase):
@@ -211,7 +211,7 @@ class LilypondStaffTest(unittest.TestCase):
         staff = midi2lily.Staff("trumpet")
         note = midi2lily.Note(midi2lily.Pitch(60), midi2lily.Duration.get_duration(1, 1, 4))
         staff.add(note)
-        self.assertEqual(str(staff), "\\new Staff = \"trumpet\" {\nc'4\n}")
+        self.assertEqual(str(staff), "\\new Staff = \"trumpet\" {\nc\'4 }")
 
 
 class LilypondNoteTest(unittest.TestCase):
@@ -375,15 +375,15 @@ class LilyPondExpressionLengthTest(unittest.TestCase):
 class TimeSignatureTest(unittest.TestCase):
 
     def testC(self):
-        signature = midi2lily.TimeSignature(4, 4, 1)
+        signature = midi2lily.TimeSignature(4, 4)
         self.assertEqual(str(signature), '\\time 4/4')
 
     def test34(self):
-        signature = midi2lily.TimeSignature(3, 4, 1)
+        signature = midi2lily.TimeSignature(3, 4)
         self.assertEqual(str(signature), '\\time 3/4')
 
     def test78(self):
-        signature = midi2lily.TimeSignature(7, 8, 1)
+        signature = midi2lily.TimeSignature(7, 8)
         self.assertEqual(str(signature), '\\time 7/8')
 
 
@@ -395,7 +395,8 @@ class HandleMidiNoteTest(unittest.TestCase):
         ]
 
         context = midi2lily.ParseContext()
-        context.time_signature = midi2lily.TimeSignature(4, 4, 1)
+        context.time_signature = midi2lily.TimeSignature(4, 4)
+        context.ticks_per_beat = 1
         context.staff = midi2lily.Staff('\\new:')
 
         file = self.build_file(midi_notes, context)
@@ -415,7 +416,8 @@ class HandleMidiNoteTest(unittest.TestCase):
         ]
 
         context = midi2lily.ParseContext()
-        context.time_signature = midi2lily.TimeSignature(4, 4, 1)
+        context.time_signature = midi2lily.TimeSignature(4, 4)
+        context.ticks_per_beat = 1
         context.staff = midi2lily.Staff('\\new:')
 
         file = self.build_file(midi_notes, context)
@@ -443,7 +445,8 @@ class HandleMidiNoteTest(unittest.TestCase):
         ]
 
         context = midi2lily.ParseContext()
-        context.time_signature = midi2lily.TimeSignature(4, 4, 1)
+        context.time_signature = midi2lily.TimeSignature(4, 4)
+        context.ticks_per_beat = 1
         context.staff = midi2lily.Staff('\\new:')
 
         file = self.build_file(midi_notes, context)
@@ -458,7 +461,8 @@ class HandleMidiNoteTest(unittest.TestCase):
         ]
 
         context = midi2lily.ParseContext()
-        context.time_signature = midi2lily.TimeSignature(4, 4, 1)
+        context.time_signature = midi2lily.TimeSignature(4, 4)
+        context.ticks_per_beat = 1
         context.staff = midi2lily.Staff(':1')
 
         file = self.build_file(midi_notes, context)
@@ -478,7 +482,8 @@ class HandleMidiNoteTest(unittest.TestCase):
         ]
 
         context = midi2lily.ParseContext()
-        context.time_signature = midi2lily.TimeSignature(4, 4, 1)
+        context.time_signature = midi2lily.TimeSignature(4, 4)
+        context.ticks_per_beat = 1
         context.staff = midi2lily.Staff(':1')
 
         file = self.build_file(midi_notes, context)
@@ -496,10 +501,12 @@ class HandleMidiNoteTest(unittest.TestCase):
         ]
 
         context = midi2lily.ParseContext()
-        context.time_signature = midi2lily.TimeSignature(4, 4, 1)
+        context.time_signature = midi2lily.TimeSignature(4, 4)
+        context.ticks_per_beat = 1
         context.staff = midi2lily.Staff(':1')
 
         file = self.build_file(midi_notes, context)
+        
         self.assertEqual(str(file), self.get_expected('test-midi-files/polyphonic3.txt'))
         
     def test_three_voices_in_polyphonic_contexts(self):
@@ -518,7 +525,8 @@ class HandleMidiNoteTest(unittest.TestCase):
         ]
 
         context = midi2lily.ParseContext()
-        context.time_signature = midi2lily.TimeSignature(4, 4, 1)
+        context.time_signature = midi2lily.TimeSignature(4, 4)
+        context.ticks_per_beat = 1
         context.staff = midi2lily.Staff(':1')
 
         file = self.build_file(midi_notes, context)
@@ -537,7 +545,8 @@ class HandleMidiNoteTest(unittest.TestCase):
         ]
 
         context = midi2lily.ParseContext()
-        context.time_signature = midi2lily.TimeSignature(4, 4, 1)
+        context.time_signature = midi2lily.TimeSignature(4, 4)
+        context.ticks_per_beat = 1
         context.staff = midi2lily.Staff(':1')
 
         file = self.build_file(midi_notes, context)
@@ -559,7 +568,8 @@ class HandleMidiNoteTest(unittest.TestCase):
         ]
 
         context = midi2lily.ParseContext()
-        context.time_signature = midi2lily.TimeSignature(4, 8, 1)
+        context.time_signature = midi2lily.TimeSignature(4, 4)
+        context.ticks_per_beat = 2
         context.staff = midi2lily.Staff(':1')
 
         file = self.build_file(midi_notes, context)
@@ -602,7 +612,7 @@ class EndToEndTests(unittest.TestCase):
         self.process_file('test-midi-files/nachtmusik-phrase-a.midi', 'test-midi-files/nachtmusik-phrase-a.txt')
 
     def atest_nachtmusik_phrase_b(self):
-        self.process_file('test-midi-files/nachtmusik-phrase-b.midi', 'test-midi-files/nachtmusik-phrase-b.txt')
+        self.process_file('test-midi-files/nachtmusik-phrase-b.midi', 'test-midi-files/nachtmusik-phrase-b.txt', True)
 
     def test_canon_d_ostinato(self):
         self.process_file('test-midi-files/canon-d-ostinato.midi', 'test-midi-files/canon-d-ostinato.txt')
@@ -611,7 +621,7 @@ class EndToEndTests(unittest.TestCase):
         self.process_file('test-midi-files/polyphonic.midi', 'test-midi-files/polyphonic.txt')
 
     def atest_canon_d(self):
-        self.process_file('test-midi-files/canon-d-32-bars.midi', 'test-midi-files/canon-d-ostinato.txt')
+        self.process_file('test-midi-files/canon-d-32-bars.midi', 'test-midi-files/canon-d-ostinato.txt', True)
 
     def process_file(self, test, expected, printOutput=False):
 

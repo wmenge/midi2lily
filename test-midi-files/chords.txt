@@ -1,8 +1,5 @@
 \version "2.19.48"
 
-\new Staff = "\new:" {
-<c' e' g'>4
-<f' a' c''>4
-<g' b' d''>4
-<c'' e'' g''>4
+\new Staff = "\new:" \relative c' {
+<c e g>4 <f a c> <g b d> <c e g> |
 }

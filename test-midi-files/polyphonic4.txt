@@ -1,21 +1,17 @@
 \version "2.19.48"
 
-\new Staff = ":1" {
+\new Staff = ":1" \relative c' {
 <<
-{
-c''1
+\relative c' {
+c'1 |
 }
 \\
-{
-g'2
-g'2
+\relative c' {
+g'2 g |
 }
 \\
-{
-e'4
-f'4
-e'4
-f'4
+\relative c' {
+e4 f e f |
 }
->>
+>> |
 }
