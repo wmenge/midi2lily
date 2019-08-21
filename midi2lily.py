@@ -54,7 +54,7 @@ class CompoundExpression(Expression):
             return self._children[-1]
             
     def get_clef(self):
-        if self.lowest_pitch() < 55 and self.highest_pitch() < 67:
+        if self.lowest_pitch() < 55:
             return 'bass'
 
     def length(self):
