@@ -1,6 +1,9 @@
+import sys
 import math
+import mido
 from fractions import Fraction
 from functools import reduce
+
 
 # TODO Split into File render context and Staff Render context
 # TODO Move lots of decision making in __str__ to render context
@@ -667,3 +670,6 @@ def convert(midifile):
                 note_off_handler(msg, context)
 
     return file
+    
+if __name__ == '__main__':
+    [print(convert(mido.MidiFile(arg))) for arg in sys.argv[1:]]
