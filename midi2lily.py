@@ -1,9 +1,11 @@
+#!/usr/local/bin/python3
+
 import sys
 import math
 import mido
 from fractions import Fraction
 from functools import reduce
-
+import argparse
 
 # TODO Split into File render context and Staff Render context
 # TODO Move lots of decision making in __str__ to render context
@@ -418,7 +420,10 @@ class Duration(Position):
     def get_duration(ticks, ticks_per_beat, denominator):
         beatFraction = Fraction(ticks, ticks_per_beat)
         return Duration(Fraction(beatFraction.numerator, beatFraction.denominator * denominator))
-
+        
+    def get_ticks(self, ticks_per_beat, denominator):
+        return int(self._fraction.numerator * ticks_per_beat * ( denominator / self._fraction.denominator ))
+        
     def can_be_expresses_as_simple_note(self):
         return self._fraction.numerator == 1
 
@@ -510,9 +515,18 @@ class TimeSignature(Expression):
 class MidiNote:
     
     def __init__(self, start, end, pitch):
+        assert(isinstance(start, int))
+        assert(isinstance(end, int))
+        assert(end > start)
+        
         self.start = start
         self.end = end
         self.pitch = pitch
+        
+    # TODO: Decide return new note or modify existing one
+    def quantize(self, resolution_in_ticks):
+        self.start = int(round(self.start / resolution_in_ticks) * resolution_in_ticks)
+        self.end = max(self.start + resolution_in_ticks, int(round(self.end / resolution_in_ticks) * resolution_in_ticks))
         
     def __eq__(self, other):
         return isinstance(other, self.__class__) and self.start == other.start and self.end == other.end and self.pitch == other.pitch
@@ -532,6 +546,7 @@ class ParseContext:
         self.time_signature = None
         self.ticks_per_beat = 0
         self.active_pitches = {}
+        self.quantize_ticks = None
         
 def is_note_on_message(msg):
     return msg.type == 'note_on' and msg.velocity > 0
@@ -553,6 +568,9 @@ def convert_to_midi_note(msg, context):
     start_position = context.active_pitches.pop(msg.note)
     duration = context.position - start_position
     midi_note = MidiNote(start_position, context.position, msg.note)
+    
+    if context.quantize_ticks:
+        midi_note.quantize(context.quantize_ticks)
     
     return midi_note
 
@@ -625,7 +643,7 @@ def fit_note_in_expression(note, start, expression):
             expression.add(chord)
             return True
       
-def convert(midifile):
+def convert(midifile, quantize_duration=None):
 
     file = File()
     staffGroup = None
@@ -662,6 +680,8 @@ def convert(midifile):
             if msg.type == 'time_signature' and context.time_signature == None:
                 context.time_signature = TimeSignature(msg.numerator, msg.denominator)
                 context.ticks_per_beat = midifile.ticks_per_beat
+                if quantize_duration:
+                    context.quantize_ticks = quantize_duration.get_ticks(midifile.ticks_per_beat, msg.denominator)
 
             if is_note_on_message(msg):
                 note_on_handler(msg, context)
@@ -672,4 +692,18 @@ def convert(midifile):
     return file
     
 if __name__ == '__main__':
-    [print(convert(mido.MidiFile(arg))) for arg in sys.argv[1:]]
+    
+    # Setup command line options
+    parser = argparse.ArgumentParser(description='Converts a midi file to lilypond file')
+    parser.add_argument('files', metavar='input', type=str, nargs='+',
+                       help='midi files to be converted')
+    parser.add_argument('-q', '--quantize', dest='quantize_denominator', default=None,
+                       help='quantization value (16 for quantizing to a 16th note)')
+    
+    args = parser.parse_args()
+    
+    if args.quantize_denominator:
+        quantize_duration = Duration(Fraction(1, int(args.quantize_denominator)))
+        [print(convert(mido.MidiFile(file), quantize_duration)) for file in args.files]
+    else:
+        [print(convert(mido.MidiFile(file))) for file in args.files]

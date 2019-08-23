@@ -214,7 +214,7 @@ class LilypondStaffTest(unittest.TestCase):
         self.assertEqual(str(staff), "\\new Staff = \"trumpet\" {\nc\'4 }")
 
 
-class LilypondNoteTest(unittest.TestCase):
+class LilypondDurationTest(unittest.TestCase):
 
     def testDuration(self):
         # Real life Quarter note
@@ -278,7 +278,13 @@ class LilypondNoteTest(unittest.TestCase):
     def testAFewWholeNotes(self):
         # a few whole notes
         duration = midi2lily.Duration.get_duration(16, 1, 4)
-        self.assertEqual(str(midi2lily.Duration.get_duration(16, 1, 4)), "1~ 1~ 1~ 1")
+        self.assertEqual(str(duration), "1~ 1~ 1~ 1")
+        
+    def test_get_ticks(self):
+        duration = midi2lily.Duration(Fraction(1, 16))
+        self.assertEqual(duration.get_ticks(12, 4), 3)
+        
+class LilypondPitchTest(unittest.TestCase):
 
     def testPitch(self):
         pitch = midi2lily.Pitch(0)
@@ -294,6 +300,8 @@ class LilypondNoteTest(unittest.TestCase):
         self.assertTrue(midi2lily.Pitch(60) == midi2lily.Pitch(60))
         self.assertTrue(midi2lily.Pitch(60) != midi2lily.Pitch(62))
 
+class LilypondNoteTest(unittest.TestCase):
+    
     def testNote(self):
         pitch = midi2lily.Pitch(60)
         duration = midi2lily.Duration.get_duration(1, 1, 4)
@@ -386,8 +394,112 @@ class TimeSignatureTest(unittest.TestCase):
         signature = midi2lily.TimeSignature(7, 8)
         self.assertEqual(str(signature), '\\time 7/8')
 
+        
+class BaseTest(unittest.TestCase):
+    
+    def build_file(self, midi_notes, context, quantize_ticks=None):
+        for midi_note in midi_notes:
+            if (quantize_ticks):
+                midi_note.quantize(quantize_ticks)
+            context.previous_note = midi2lily.handle_midi_note(midi_note, context)
 
-class HandleMidiNoteTest(unittest.TestCase):
+        file = midi2lily.File()
+        file.add(context.staff)
+
+        return file
+
+    def get_expected(self, file):
+        expected_file = open((file))
+        expected_result = expected_file.read()
+        expected_file.close()
+        return expected_result
+        
+    def process_file(self, test, expected, printOutput=False):
+
+        # open a midi file
+        midifile = MidiFile(test)
+        result = midi2lily.convert(midifile)
+
+        if printOutput:
+            print(test)
+            self.print_midi_file(test)
+            print(result)
+        expected_file = open(expected)
+        expected_result = expected_file.read()
+        expected_file.close()
+        self.assertEqual(str(result), expected_result)
+
+    def print_midi_file(self, test):
+        # open a midi file
+        midifile = MidiFile(test)
+
+        for i, track in enumerate(midifile.tracks):
+            print('Track {}: {}'.format(i, track.name))
+            for msg in track:
+                print(msg)
+
+class QuantizeTest(BaseTest):
+    
+    
+    def test_quantize(self):
+        
+        # unquantized midi quarter note (should run from 0 to 12)
+        # (ticks per beat = 12)
+        midi_note = midi2lily.MidiNote(1, 11, 60)
+        
+        # Setup quantizing to 16th note (or 3 ticks)
+        quantize_duration = midi2lily.Duration(Fraction(1, 16))
+        quantize_ticks = quantize_duration.get_ticks(12, 4)
+        
+        midi_note.quantize(quantize_ticks)
+        
+        self.assertEqual(midi_note.start, 0)
+        self.assertEqual(midi_note.end, 12) 
+        
+    def test_quantize_prevent_notes_without_duration(self):
+        
+        # unquantized midi quarter note (should run from 0 to 12)
+        # (ticks per beat = 12)
+        midi_note = midi2lily.MidiNote(1, 2, 60)
+        
+        # Setup quantizing to 1/2 note (or 24 ticks)
+        quantize_duration = midi2lily.Duration(Fraction(1, 2))
+        quantize_ticks = quantize_duration.get_ticks(12, 4)
+        
+        midi_note.quantize(quantize_ticks)
+        
+        self.assertEqual(midi_note.start, 0)
+        self.assertEqual(midi_note.end, 24)
+        
+    def test_quantize_input(self):
+        
+        # unquantized inputs (quarters note not exactly in time)
+        # (ticks per beat = 12)
+        midi_notes = [
+            midi2lily.MidiNote(0, 11, 60),
+            midi2lily.MidiNote(11, 24, 62),
+            midi2lily.MidiNote(24, 37, 64),
+            midi2lily.MidiNote(37, 48, 65),
+            midi2lily.MidiNote(48, 61, 67),
+            midi2lily.MidiNote(61, 73, 69),
+            midi2lily.MidiNote(73, 85, 71),
+            midi2lily.MidiNote(85, 96, 72)
+        ]
+
+        context = midi2lily.ParseContext()
+        context.time_signature = midi2lily.TimeSignature(4, 4)
+        context.ticks_per_beat = 12
+        context.staff = midi2lily.Staff('\\new:')
+        
+        # Setup quantizing to 16th note (or 3 ticks)
+        quantize_duration = midi2lily.Duration(Fraction(1, 16))
+        quantize_ticks = quantize_duration.get_ticks(12, 4)
+
+        file = self.build_file(midi_notes, context, quantize_ticks)
+        
+        self.assertEqual(str(file), self.get_expected('test-midi-files/scale.txt')) 
+
+class HandleMidiNoteTest(BaseTest):
 
     def test_c(self):
         midi_notes = [
@@ -575,23 +687,7 @@ class HandleMidiNoteTest(unittest.TestCase):
         file = self.build_file(midi_notes, context)
         self.assertEqual(str(file), self.get_expected('test-midi-files/polyphonic6.txt'))
 
-    def build_file(self, midi_notes, context):
-        for midi_note in midi_notes:
-            context.previous_note = midi2lily.handle_midi_note(midi_note, context)
-
-        file = midi2lily.File()
-        file.add(context.staff)
-
-        return file
-
-    def get_expected(self, file):
-        expected_file = open((file))
-        expected_result = expected_file.read()
-        expected_file.close()
-        return expected_result
-
-
-class EndToEndTests(unittest.TestCase):
+class EndToEndTests(BaseTest):
 
     def test_c(self):
         self.process_file('test-midi-files/c.midi', 'test-midi-files/c.txt')
@@ -622,31 +718,6 @@ class EndToEndTests(unittest.TestCase):
 
     def atest_canon_d(self):
         self.process_file('test-midi-files/canon-d-32-bars.midi', 'test-midi-files/canon-d-ostinato.txt', True)
-
-    def process_file(self, test, expected, printOutput=False):
-
-        # open a midi file
-        midifile = MidiFile(test)
-        result = midi2lily.convert(midifile)
-
-        if printOutput:
-            print(test)
-            self.print_midi_file(test)
-            print(result)
-        expected_file = open(expected)
-        expected_result = expected_file.read()
-        expected_file.close()
-        self.assertEqual(str(result), expected_result)
-
-    def print_midi_file(self, test):
-        # open a midi file
-        midifile = MidiFile(test)
-
-        for i, track in enumerate(midifile.tracks):
-            print('Track {}: {}'.format(i, track.name))
-            for msg in track:
-                print(msg)
-
 
 if __name__ == '__main__':
     unittest.main()
