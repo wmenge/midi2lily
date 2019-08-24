@@ -175,6 +175,7 @@ class PolyphonicContext(Expression):
         # when printing a polyphonic context, sort by average pitch, so that 
         # highest voice is printed first and is drawn with stems up
         pitches = e.pitches()
+        assert(len(pitches) > 0)
         return sum(pitches) / len(pitches)
         
     def __str__(self, context = None):
@@ -366,7 +367,7 @@ class Pitch:
 
             if reference_pitch - self.pitch > 5:
                 octave_string = ","
-            elif self.pitch - reference_pitch > 6:
+            elif self.pitch - reference_pitch > 5:
                 octave_string = "'"
                 
             context.previous_pitch = self
