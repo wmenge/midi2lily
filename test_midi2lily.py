@@ -51,7 +51,6 @@ class LilypondFileTest(unittest.TestCase):
         self.assertEqual(str(file),
                          "\\version \"1\"\n\n\\new Staff = \"trumpet\" \\relative c' {\ng'4 g g4. f8 |\ne8. d16 c8. e16 d4 g, |\n}")
 
-
 class LilypondCompoundExpressionTest(unittest.TestCase):
 
     def test_empty_expression(self):
@@ -200,7 +199,6 @@ class LilypondGetPitchesTest(unittest.TestCase):
         self.assertEqual(expression.highest_pitch(), 60)
         self.assertEqual(expression.get_clef(), 'bass')
 
-
 class LilypondStaffTest(unittest.TestCase):
 
     def test_empty_staff(self):
@@ -212,7 +210,6 @@ class LilypondStaffTest(unittest.TestCase):
         note = midi2lily.Note(midi2lily.Pitch(60), midi2lily.Duration.get_duration(1, 1, 4))
         staff.add(note)
         self.assertEqual(str(staff), "\\new Staff = \"trumpet\" {\nc\'4 }")
-
 
 class LilypondDurationTest(unittest.TestCase):
 
@@ -284,6 +281,19 @@ class LilypondDurationTest(unittest.TestCase):
         duration = midi2lily.Duration(Fraction(1, 16))
         self.assertEqual(duration.get_ticks(12, 4), 3)
         
+    def test_duration_crossing_measure(self):
+        
+        # 1/2 note duration...
+        note = midi2lily.Note(midi2lily.Pitch(60), midi2lily.Duration(Fraction(1, 2)))
+        
+        # ...rendered in 4/4 time at beat 3 of first measure...
+        context = midi2lily.RenderContext()
+        context.time_signature = midi2lily.TimeSignature(4, 4)
+        context.position = Fraction(3, 4)
+        
+        # should be rendered as tied 1/4 note durations when crossing the measure
+        self.assertEqual(note.__str__(context), "c4~ | 4")
+
 class LilypondPitchTest(unittest.TestCase):
 
     def testPitch(self):

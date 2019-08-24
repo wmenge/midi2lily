@@ -389,6 +389,7 @@ class Position:
         return Position(Fraction(beatFraction.numerator, beatFraction.denominator * denominator))
 
     def __init__(self, fraction):
+        assert(isinstance(fraction, Fraction))
         self._fraction = fraction
     
     # todo: misnomer for position
@@ -434,19 +435,29 @@ class Duration(Position):
     def length(self):
         return self._fraction
 
-    def __str__(self, context = None):
+    def __str__(self, context = None, force_expression = False):
         
         if isinstance(context, RenderContext):
-            context.position += self.length()
+
+            # Check if note crosses a measure (TODO: Also check hidden barlines to cater for readable syncopation)
+            remaining_space_in_measure = (context.time_signature.get_measure_length() - context.position) % context.time_signature.get_measure_length()
+
+            if remaining_space_in_measure > 0 and remaining_space_in_measure < self.length():
+                duration1 = Duration(remaining_space_in_measure)
+                duration2 = Duration(self.length() - remaining_space_in_measure)
+
+                return "~ | ".join([duration1.__str__(context, True), duration2.__str__(context, True)])
             
             # type setting optimization: If this note has
             # the same duration as the previous note, you can 
             # omit the duration
+            context.position += self.length()
+
             previous_duration = context.previous_duration
             context.previous_duration = self
-            if self == previous_duration:
+            if not force_expression and self == previous_duration:
                 return ""
-                
+
         if (self.can_be_expresses_as_simple_note()):
             # simple duration
             return str(self._fraction.denominator)
@@ -507,6 +518,9 @@ class TimeSignature(Expression):
     def __init__(self, numerator, denominator):
         self.numerator = numerator
         self.denominator = denominator
+        
+    def get_measure_length(self):
+        return Fraction(self.numerator, self.denominator)
         
     def __str__(self, context = None):
         if isinstance(context, ParseContext): context.time_signature = self
