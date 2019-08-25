@@ -148,7 +148,73 @@ class LilypondPolyphonicContextTest(unittest.TestCase):
         context.add(rythm_expression)
 
         self.assertEqual(str(context), "<<\n{\nc''2 }\n\\\\\n{\ne'4 g'4 }\n>>")
+        
+    def test_polyphonic_context_is_balanced(self):
 
+        context = midi2lily.PolyphonicContext()
+
+        # voice 1
+        melody_expression = midi2lily.CompoundExpression()
+
+        melody_expression.add(midi2lily.Note(midi2lily.Pitch(72), midi2lily.Duration(Fraction(4,4))))
+
+        context.add(melody_expression)
+
+        # voice 2
+        rythm_expression = midi2lily.CompoundExpression()
+
+        rythm_expression.add(midi2lily.Note(midi2lily.Pitch(64), midi2lily.Duration(Fraction(2,4))))
+        rythm_expression.add(midi2lily.Note(midi2lily.Pitch(67), midi2lily.Duration(Fraction(2,4))))
+        
+        context.add(rythm_expression)
+
+        self.assertTrue(context.is_balanced())
+        
+    def test_polyphonic_context_is_unbalanced(self):
+        context = midi2lily.PolyphonicContext()
+
+        # voice 1
+        melody_expression = midi2lily.CompoundExpression()
+
+        melody_expression.add(midi2lily.Note(midi2lily.Pitch(72), midi2lily.Duration(Fraction(4,4))))
+
+        context.add(melody_expression)
+
+        # voice 2 (unbalanced)
+        rythm_expression = midi2lily.CompoundExpression()
+
+        rythm_expression.add(midi2lily.Note(midi2lily.Pitch(64), midi2lily.Duration(Fraction(2,4))))
+        
+        context.add(rythm_expression)
+
+        self.assertTrue(not context.is_balanced())
+
+    def test_close_polyphonic_context(self):
+
+        context = midi2lily.PolyphonicContext()
+
+        # voice 1
+        melody_expression = midi2lily.CompoundExpression()
+
+        melody_expression.add(midi2lily.Note(midi2lily.Pitch(72), midi2lily.Duration(Fraction(4,4))))
+
+        context.add(melody_expression)
+
+        # voice 2 (unbalanced)
+        rythm_expression = midi2lily.CompoundExpression()
+
+        rythm_expression.add(midi2lily.Note(midi2lily.Pitch(64), midi2lily.Duration(Fraction(2,4))))
+        
+        context.add(rythm_expression)
+
+        # before closing the context is unbalanced
+        self.assertTrue(not context.is_balanced())
+        
+        context.close()
+        
+        # after closing, the context is balanced by adding a rest
+        self.assertTrue(context.is_balanced())
+        self.assertEqual(str(context), "<<\n{\nc''1 }\n\\\\\n{\ne'2 r2 }\n>>")
 
 class LilypondGetPitchesTest(unittest.TestCase):
 

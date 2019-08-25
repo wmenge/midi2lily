@@ -160,6 +160,15 @@ class PolyphonicContext(Expression):
         lengths = set(map(lambda x: x.length(), self.__voices))
         return len(self.__voices) > 1 and len(lengths) == 1
         
+    def close(self):
+        
+        # If unbalanced, add rests to the smallest 
+        longest = reduce(max, map(lambda x: x.length(), self.__voices))
+        
+        for voice in self.__voices:
+            if voice.length() < longest:
+                voice.add(Rest(Duration(longest - voice.length())))
+        
     def merge(self, other):
 
         assert(isinstance(other, PolyphonicContext))
@@ -596,6 +605,7 @@ def handle_midi_note(midi_note, context):
     start = Position.get_position(midi_note.start, context.ticks_per_beat, context.time_signature.denominator)
     
     if fit_note_in_expression(note, start, context.staff):
+        if context.polyphonic_context: context.polyphonic_context.close()
         context.polyphonic_context = None
         return
             
