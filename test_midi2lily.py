@@ -796,6 +796,9 @@ class EndToEndTests(BaseTest):
     def test_nachtmusik_phrase_a(self):
         self.process_file('test-midi-files/nachtmusik-phrase-a.midi', 'test-midi-files/nachtmusik-phrase-a.txt')
 
+    def skip_test_nachtmusik_syncopation_fragment(self):
+        self.process_file('test-midi-files/nachtmusik-syncopation-fragment.midi', 'test-midi-files/nachtmusik-syncopation-fragment.txt', True)
+    
     def skip_test_nachtmusik_phrase_b(self):
         self.process_file('test-midi-files/nachtmusik-phrase-b.midi', 'test-midi-files/nachtmusik-phrase-b.txt', True)
 

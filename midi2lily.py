@@ -375,11 +375,13 @@ class Pitch:
             
             if isinstance(context.previous_pitch, Pitch):
                 reference_pitch = context.previous_pitch.pitch
+                
+            delta = reference_pitch - self.pitch
 
-            if reference_pitch - self.pitch > 5:
-                octave_string = ","
-            elif self.pitch - reference_pitch > 5:
-                octave_string = "'"
+            if delta > 5:
+                octave_string = "," * max(1, (abs(delta // 12) - 1))
+            elif delta < -5:
+                octave_string = "'" * max(1, (abs(delta // 12) - 1))
                 
             context.previous_pitch = self
                 

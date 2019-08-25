@@ -1,0 +1,12 @@
+\version "2.19.48"
+
+\new Staff = "Violin I" \relative c' {
+d''8 <fis, d'>4 <fis d'> <fis d'> <<
+\relative c' {
+d''8~ | 8 }
+\\
+\relative c' {
+fis' |
+e }
+>> <e d'>4 <e d'> <e d'> <e d'>8 |
+}
