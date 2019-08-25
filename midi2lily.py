@@ -1,6 +1,6 @@
 #!/usr/local/bin/python3
-
 import sys
+import re
 import math
 import mido
 from fractions import Fraction
@@ -238,7 +238,9 @@ class Rest(Expression):
         # bad hack: compound durations are represented as:
         # "1~ 4" where the second note implicitly gets the same pitch
         # as the previous. For rests this does not work
-        result = 'r' + self.duration.__str__(context).replace('~ ', ' r')
+        result = 'r' + self.duration.__str__(context).replace('~', '')
+        result = re.sub(r"\s(\d)", r" r\1", result)
+        
         return result
         
 class Note(Expression):
@@ -593,7 +595,9 @@ def handle_midi_note(midi_note, context):
     note = Note.get_from_midi_note(midi_note, context)
     start = Position.get_position(midi_note.start, context.ticks_per_beat, context.time_signature.denominator)
     
-    if fit_note_in_expression(note, start, context.staff): return
+    if fit_note_in_expression(note, start, context.staff):
+        context.polyphonic_context = None
+        return
             
     # if we have arrived here we will need a polyphonic context
     if context.polyphonic_context == None:

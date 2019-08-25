@@ -294,6 +294,19 @@ class LilypondDurationTest(unittest.TestCase):
         # should be rendered as tied 1/4 note durations when crossing the measure
         self.assertEqual(note.__str__(context), "c4~ | 4")
 
+    def test_duration_crossing_measure2(self):
+        # 1/2 note rest...
+        rest = midi2lily.Rest(midi2lily.Duration(Fraction(1, 2)))
+
+        # ...rendered in 4/4 time at beat 3 of first measure...
+        context = midi2lily.RenderContext()
+        context.time_signature = midi2lily.TimeSignature(4, 4)
+        context.position = Fraction(3, 4)
+
+        # should be rendered as tied 1/4 note durations when crossing the measure
+        self.assertEqual(rest.__str__(context), "r4 | r4")
+
+
 class LilypondPitchTest(unittest.TestCase):
 
     def testPitch(self):
@@ -717,7 +730,7 @@ class EndToEndTests(BaseTest):
     def test_nachtmusik_phrase_a(self):
         self.process_file('test-midi-files/nachtmusik-phrase-a.midi', 'test-midi-files/nachtmusik-phrase-a.txt')
 
-    def atest_nachtmusik_phrase_b(self):
+    def skip_test_nachtmusik_phrase_b(self):
         self.process_file('test-midi-files/nachtmusik-phrase-b.midi', 'test-midi-files/nachtmusik-phrase-b.txt', True)
 
     def test_canon_d_ostinato(self):
@@ -726,7 +739,7 @@ class EndToEndTests(BaseTest):
     def test_2_voices(self):
         self.process_file('test-midi-files/polyphonic.midi', 'test-midi-files/polyphonic.txt')
 
-    def atest_canon_d(self):
+    def skip_test_canon_d(self):
         self.process_file('test-midi-files/canon-d-32-bars.midi', 'test-midi-files/canon-d-ostinato.txt', True)
 
 if __name__ == '__main__':
