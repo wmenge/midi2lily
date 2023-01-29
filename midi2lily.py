@@ -1,11 +1,12 @@
 #!/usr/local/bin/python3
 import sys
+import warnings
 import re
 import math
-import mido
 from fractions import Fraction
 from functools import reduce
 import argparse
+import mido
 
 # TODO Split into File render context and Staff Render context
 # TODO Move lots of decision making in __str__ to render context
@@ -97,13 +98,6 @@ class CompoundExpression(Expression):
     def highest_pitch(self):
         return max(self.pitches(),default=0)
 
-    # break out into length/position class
-    def format_length(fraction):
-        return "m {}, b {}".format((fraction.numerator // fraction.denominator), (fraction.numerator % fraction.denominator))
-
-    def formatted_length(self):
-        return Expression.format_length(self.get_length)
-
     def merge(self, other):
         assert(isinstance(other, CompoundExpression))
         self._children.extend(other._children)
@@ -184,7 +178,8 @@ class PolyphonicContext(Expression):
         # when printing a polyphonic context, sort by average pitch, so that 
         # highest voice is printed first and is drawn with stems up
         pitches = e.pitches()
-        assert(len(pitches) > 0)
+        #assert(len(pitches) > 0)
+        if not pitches: return 0
         return sum(pitches) / len(pitches)
         
     def __str__(self, context = None):
@@ -428,7 +423,7 @@ class Position:
         return hash(self._fraction)
 
     def __str__(self):
-        return str(self._fraction)
+        return "measure {}, beat {}".format((self._fraction.numerator // self._fraction.denominator), (self._fraction.numerator % self._fraction.denominator))
 
 class Duration(Position):
 
@@ -538,7 +533,10 @@ class TimeSignature(Expression):
     def __str__(self, context = None):
         if isinstance(context, ParseContext): context.time_signature = self
         return "\\time {}/{}".format(self.numerator, self.denominator)
-        
+
+def quantize(time, resolution_in_ticks):
+    return int(round(time / resolution_in_ticks) * resolution_in_ticks)
+
 # a representation of midi note as start, end and pitch  
 class MidiNote:
     
@@ -553,8 +551,8 @@ class MidiNote:
         
     # TODO: Decide return new note or modify existing one
     def quantize(self, resolution_in_ticks):
-        self.start = int(round(self.start / resolution_in_ticks) * resolution_in_ticks)
-        self.end = max(self.start + resolution_in_ticks, int(round(self.end / resolution_in_ticks) * resolution_in_ticks))
+        self.start = quantize(self.start, resolution_in_ticks)
+        self.end = max(self.start + resolution_in_ticks, quantize(self.end, resolution_in_ticks))
         
     def __eq__(self, other):
         return isinstance(other, self.__class__) and self.start == other.start and self.end == other.end and self.pitch == other.pitch
@@ -569,6 +567,7 @@ class ParseContext:
     def __init__(self):
         self.position = 0
         # rename to open expression so it can also hold a polyphonic fragment?
+        self.track = None
         self.staff = None
         self.polyphonic_context = None
         self.time_signature = None
@@ -591,9 +590,14 @@ def note_off_handler(msg, context):
     handle_midi_note(midi_note, context)
 
 def convert_to_midi_note(msg, context):
-    assert msg.note in context.active_pitches
+    start_position = 0
     
-    start_position = context.active_pitches.pop(msg.note)
+    if msg.note not in context.active_pitches:
+        position = Position.get_position(quantize(context.position, context.quantize_ticks), context.ticks_per_beat, context.time_signature.denominator)
+        warnings.warn("note-off message with no corresponding note-on message found: pitch: {}, time: {} @ {} in track '{}'".format(Pitch(msg.note), msg.time, position, context.track.name))
+    else:
+        start_position = context.active_pitches.pop(msg.note)
+    
     duration = context.position - start_position
     midi_note = MidiNote(start_position, context.position, msg.note)
     
@@ -679,6 +683,8 @@ def convert(midifile, quantize_duration=None):
     file = File()
     staffGroup = None
     context = ParseContext()
+
+    print(midifile.ticks_per_beat)
     
     for i, track in enumerate(midifile.tracks):
         
@@ -688,7 +694,10 @@ def convert(midifile, quantize_duration=None):
         # ignore control track
         if (i > 0):
 
+            print(track)
+
             # TODO: track handler function
+            context.track = track
             context.staff = Staff(track.name)
             
             # first track gets added directly to file.
@@ -704,6 +713,8 @@ def convert(midifile, quantize_duration=None):
                 staffGroup.add(context.staff)
 
         for msg in track:
+
+            #print(msg)
             
             context.position += msg.time
             
